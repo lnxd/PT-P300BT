@@ -30,6 +30,11 @@ def set_args():
         help='Text to be printed.'
     )
     p.add_argument(
+        '-l', '--lines',
+        help='Add two invisible horizontal lines (exprerimental, to be tuned).',
+        action='store_true'
+    )
+    p.add_argument(
         '-s', '--show',
         help='Show the created image and quit.',
         action='store_true'
@@ -76,22 +81,23 @@ def main():
     args = p.parse_args()
     data = None
     if args.image is None:
-        # Check if label is all in uppercase mode (A-Z, 0-9, space, and hyphen)
-        # Define font sizes
-        if re.match(r"^[A-Z0-9\ -]+$", args.text_to_print):
-            mode = "uppercase"
-            font_size = 86
-            print("UPPERCASE MODE (bigger font)")
-        else:
-            mode = "standard"
-            font_size = 70
-            print("standard mode")
-
+        # Load a fixed size to get the bottom part of the text vs. font baseline
+        # (ensure you have a valid TTF file path)
         try:
-            # Load a font (ensure you have a valid TTF file path)
-            font = ImageFont.truetype(args.fontname, font_size)
+            font = ImageFont.truetype(args.fontname, 100, encoding='utf-8')
         except IOError:
             p.error("Font file not found. Make sure 'arial.ttf' or another TTF file is available.")
+
+        if font.getbbox(args.text_to_print, anchor="ls")[3] < 3:
+            use_big_font = True
+            font_size = 86
+            print("UPPERCASE MODE (bigger font)")
+        else:  # here the characters overshoot below the baseline
+            use_big_font = False
+            font_size = 67
+            print("standard mode")
+
+        font = ImageFont.truetype(args.fontname, font_size, encoding='utf-8')
 
         image = Image.new("RGB", (1, 1), "white")  # Dummy image to calculate size
         # Get the bounding box for the text
@@ -101,16 +107,23 @@ def main():
         )
 
         # Create a drawing context for the image
-        if mode == "uppercase":
+        height_of_the_tape = 122
+        if use_big_font:
             # Add some space for the border and padding
-            image = Image.new("RGB", (text_width + 20, text_height + 20), "white")
+            image = Image.new("RGB", (text_width + 21, height_of_the_tape), "white")
             draw = ImageDraw.Draw(image)
-            draw.text((10, 3), args.text_to_print, font=font, fill="black")
+            draw.text((10, 15), args.text_to_print, font=font, fill="black")
         else:
             # Standard mode, with different alignment and padding
-            image = Image.new("RGB", (text_width + 10, text_height + 30), "white")
+            image = Image.new("RGB", (text_width + 1, height_of_the_tape), "white")
             draw = ImageDraw.Draw(image)
-            draw.text((5, 10), args.text_to_print, font=font, fill="black")
+            draw.text((0, 19), args.text_to_print, font=font, fill="black")
+
+        if args.lines:
+            # Draw a horizontal line at the top and bottom borders
+            dim = 29
+            draw.line((0, dim, image.width, dim), fill="red", width=1)
+            draw.line((0, image.height - dim, image.width, image.height - dim), fill="red", width=1)
 
         if args.show:
             image.show()

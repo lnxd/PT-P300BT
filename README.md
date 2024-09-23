@@ -14,6 +14,8 @@ The scripts convert text labels to appropriate images compatible with 12mm width
 
 Comparing with the PT-P300BT gist, it uses *printlabel.py*, which does not create a temporary image file and does not need ImageMagick; also, *printlabel.cmd* and *printlabel.sh* are not used.
 
+Two font sizes are used, depending on the character sequence; the smaller font is selected when characters [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)).
+
 Standard usage: `python3 printlabel.py COM_PORT FONT_NAME TEXT_TO_PRINT`
 
 The tested font name is "arial.ttf". Examples:
