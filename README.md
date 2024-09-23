@@ -6,19 +6,18 @@ The [Brother P-touch Cube PT-P300BT labelling machine](https://support.brother.c
 
 This repository provides a command-line tool in pure Python to print from a computer. It is based on the scripts included in the following Gists:
 
-- [PT-P300BT gist](https://gist.github.com/Ircama/bd53c77c98ecd3d7db340c0398b22d8a)
-- [dogtopus/Pipfile gist](https://gist.github.com/dogtopus/64ae743825e42f2bb8ec79cea7ad2057)
-- [stecman gist](https://gist.github.com/stecman/ee1fd9a8b1b6f0fdd170ee87ba2ddafd)
+- [PT-P300BT Gist](https://gist.github.com/Ircama/bd53c77c98ecd3d7db340c0398b22d8a)
+- [dogtopus/Pipfile Gist](https://gist.github.com/dogtopus/64ae743825e42f2bb8ec79cea7ad2057)
+- [stecman Gist](https://gist.github.com/stecman/ee1fd9a8b1b6f0fdd170ee87ba2ddafd)
+- [vsigler Gist](https://gist.github.com/vsigler/98eafaf8cdf2374669e590328164f5fc)
 
-The scripts convert text labels to appropriate images compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer. The scripts also include the code to drive the printer via serial Bluetooth interface.
+The scripts convert text labels to appropriate images compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer, regardless the used font. The scripts also include the code to drive the printer via serial Bluetooth interface.
 
-Comparing with the PT-P300BT gist, it uses *printlabel.py*, which does not create a temporary image file and does not need ImageMagick; also, *printlabel.cmd* and *printlabel.sh* are not used.
-
-Two font sizes are used, depending on the character sequence; the smaller font is selected when characters [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)).
+Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font.
 
 Standard usage: `python3 printlabel.py COM_PORT FONT_NAME TEXT_TO_PRINT`
 
-The tested font name is "arial.ttf". Examples:
+Examples:
 
 ```
 python3 printlabel.py COM7 "arial.ttf" "Lorem Ipsum"
@@ -33,7 +32,7 @@ printlabel.exe COM7 "arial.ttf" "Lorem Ipsum"
 In addition, all options included in *labelmaker.py* are available.
 
 ```
-usage: printlabel.py [-h] [-s] [-i IMAGE] [-n] [-F] [-a] [-m END_MARGIN] [-r] [-C] COM_PORT FONT_NAME TEXT_TO_PRINT
+usage: printlabel.py [-h] [-l] [-s] [-i IMAGE] [-n] [-F] [-a] [-m END_MARGIN] [-r] [-C] COM_PORT FONT_NAME TEXT_TO_PRINT
 
 positional arguments:
   COM_PORT              Printer COM port.
@@ -42,9 +41,10 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -s, --show            Show the created image and quit.
+  -l, --lines           Add horizontal lines for drawing area (dotted red) and tape (cyan).
+  -s, --show            Show the created image.
   -i IMAGE, --image IMAGE
-                        Image file to print. If this option is used, TEXT_TO_PRINT is ignored.
+                        Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.
   -n, --no-print        Only configure the printer and send the image but do not send print command.
   -F, --no-feed         Disable feeding at the end of the print (chaining).
   -a, --auto-cut        Enable auto-cutting (or print label boundary on e.g. PT-P300BT).
