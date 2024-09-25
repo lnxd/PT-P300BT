@@ -154,6 +154,27 @@ def main():
         x, y = (128-w)//2, 0
         nw, nh = x+w, y+h
         padded.paste(tmp, (x, y, nw, nh))
+        print_length = padded.size[1] * 0.149  # mm
+        print(
+            "Length of the printed tape:",
+            "%.1f" % (print_length / 10),
+            "cm = %.1f" % (print_length / 10 / 2.54),
+            "inc, printed in",
+            "%.1f" % (print_length / 20),
+            "sec."
+        )
+        print_length += (25 + 1)  # 2.5 cm of wasted tape before, 1 mm after
+        print(
+            "Length of the used tape (adding header and footer):",
+            "%.1f" % (print_length / 10),
+            "cm = %.1f" % (print_length / 10 / 2.54),
+            "inc, printed in",
+            "%.1f" % (print_length / 20),
+            "sec."
+        )
+        if print_length > 499:
+            print("Print length exceeding 49.9 cm = 19.6 inc")
+            quit()
         if args.show:
             padded.show()
             if args.no_print:
