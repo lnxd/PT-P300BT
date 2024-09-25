@@ -29,10 +29,11 @@ or:
 printlabel.exe COM7 "arial.ttf" "Lorem Ipsum"
 ```
 
-In addition, all options included in *labelmaker.py* are available.
+In addition, all options included in *labelmaker.py* are available, with some extension.
 
 ```
-usage: printlabel.py [-h] [-l] [-s] [-i IMAGE] [-n] [-F] [-a] [-m END_MARGIN] [-r] [-C] COM_PORT FONT_NAME TEXT_TO_PRINT
+usage: printlabel.py [-h] [-l] [-s] [-i IMAGE] [-M MERGE] [-R RESIZE] [-X X_MERGE] [-Y Y_MERGE] [-S SAVE] [-n] [-F] [-a] [-m END_MARGIN] [-r] [-C]
+                     COM_PORT FONT_NAME TEXT_TO_PRINT
 
 positional arguments:
   COM_PORT              Printer COM port.
@@ -42,9 +43,18 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -l, --lines           Add horizontal lines for drawing area (dotted red) and tape (cyan).
-  -s, --show            Show the created image.
+  -s, --show            Show the created image and quit.
   -i IMAGE, --image IMAGE
                         Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.
+  -M MERGE, --merge MERGE
+                        Merge the image file. Can be used multiple times.
+  -R RESIZE, --resize RESIZE
+                        With merge, add a specific resize value to the internally computed one.
+  -X X_MERGE, --x-merge X_MERGE
+                        With merge, horizontaly traslate image of X pixels.
+  -Y Y_MERGE, --y-merge Y_MERGE
+                        With merge, vertically traslate image of Y pixels.
+  -S SAVE, --save SAVE  Save the produced image to a PNG file.
   -n, --no-print        Only configure the printer and send the image but do not send print command.
   -F, --no-feed         Disable feeding at the end of the print (chaining).
   -a, --auto-cut        Enable auto-cutting (or print label boundary on e.g. PT-P300BT).
@@ -55,6 +65,15 @@ optional arguments:
 ```
 
 Options `-sln` are useful to simulate the print, showing the created image and adding horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan).
+
+Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating multiple images with the `-M` option, that can be used more times (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. If the merged image is bigger than the text, it is automatically resized. Resizing and traslation of merged images can be controlled with `-R`, `-X`, `-Y`.
+
+Example of merging image and text, resizing and traslating the image so that it fits the printable area:
+
+```
+curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/happy-sun.png -o happy-sun.png
+python printlabel.py -sln -M happy-sun.png -R 0.7 -Y 14 COM7 "Gabriola.ttf" "Hello!"
+```
 
 ## Installation
 
@@ -121,7 +140,7 @@ The printer has 180 DPI (dot per inch) square resolution at 20 mm/sec.
 
 The max. length of the printable area is 0,499 m.
 
-Even if the Brother TZe tape size is 12 mm, the height of the printable area is 64 pixel, which is 9 mm at 180 DPI: 64 pixels / 180 DPI / 0.0393701 inch/mm = 9 mm.
+Even if the Brother TZe tape size is 12 mm, the height of the printable area is 64 pixels, which is 9 mm at 180 DPI: 64 pixels / 180 DPI / 0.0393701 inch/mm = 9 mm.
 
 On this printer, tape is wasted before and after the printable area on each label (about 2.5 cm of additional tape before the printed area and about 1 mm after it).
 

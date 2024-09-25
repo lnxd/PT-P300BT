@@ -44,6 +44,33 @@ def set_args():
         help='Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.'
     )
     p.add_argument(
+        '-M', '--merge',
+        action='append',
+        help='Merge the image file. Can be used multiple times.'
+    )
+    p.add_argument(
+        '-R', '--resize',
+        type=float,
+        help='With merge, add a specific resize value to the internally computed one.',
+        default = 1.0
+    )
+    p.add_argument(
+        '-X', '--x-merge',
+        type=int,
+        help='With merge, horizontaly traslate image of X pixels.',
+        default = 0
+    )
+    p.add_argument(
+        '-Y', '--y-merge',
+        type=int,
+        help='With merge, vertically traslate image of Y pixels.',
+        default = 0
+    )
+    p.add_argument(
+        '-S', '--save',
+        help='Save the produced image to a PNG file.'
+    )
+    p.add_argument(
         '-n', '--no-print',
         help='Only configure the printer and send the image but do not send print command.',
         action='store_true'
@@ -89,31 +116,73 @@ def main():
         # Compute max TT font size to remain within height_of_the_printable_area
         font_size = 1
         font_height = 0
-        while font_height < height_of_the_printable_area - 1:
-            font = ImageFont.truetype(
-                args.fontname, font_size, encoding='utf-8'
-            )
-            font_width, font_height = font.getbbox(
-                args.text_to_print, anchor="lt"
-            )[2:]
-            font_size += 1
-
-        # Create a drawing context for the image
-        image = Image.new(
-            "RGB",
-            (font_width + h_padding * 2 + 1, height_of_the_image),
-            "white"
-        )
-        draw = ImageDraw.Draw(image)
         print_border = (height_of_the_image - height_of_the_printable_area) / 2
-        draw.text(
-            (h_padding, print_border + 1),
-            args.text_to_print,
-            font=font, fill="black", anchor="lt"
-        )
+        if args.text_to_print:
+            while font_height < height_of_the_printable_area - 1:
+                font = ImageFont.truetype(
+                    args.fontname, font_size, encoding='utf-8'
+                )
+                font_width, font_height = font.getbbox(
+                    args.text_to_print, anchor="lt"
+                )[2:]
+                font_size += 1
+
+            # Create a drawing context for the image
+            image = Image.new(
+                "RGB",
+                (font_width + h_padding * 2 + 1, height_of_the_image),
+                "white"
+            )
+            draw = ImageDraw.Draw(image)
+            draw.text(
+                (h_padding, print_border + 1),
+                args.text_to_print,
+                font=font, fill="black", anchor="lt"
+            )
+        else:  # null image
+            image = Image.new(
+                "RGB",
+                (0, height_of_the_image),
+                "white"
+            )
+            draw = ImageDraw.Draw(image)
+
+        if args.merge:
+            for i in args.merge:
+                loaded_image = Image.open(i)
+                if loaded_image.height > height_of_the_image:
+                    print(f'Reducing size of image "{i}"')
+                    loaded_image = loaded_image.resize(
+                        (
+                            int(
+                                height_of_the_image
+                                / loaded_image.height
+                                * loaded_image.width
+                                * args.resize
+                            ),
+                            int(height_of_the_image * args.resize)
+                        ), Image.Resampling.LANCZOS
+                    )
+                dst = Image.new(
+                    "RGB",
+                    (loaded_image.width + image.width, height_of_the_image),
+                    "white"
+                )
+                if loaded_image.info.get("transparency", None) is not None:
+                    print(f'Detected transparent image: "{i}"')
+                    loaded_image = loaded_image.convert('RGBA')
+                    alpha = loaded_image.split()[-1]
+                    dst.paste(
+                        loaded_image, (args.x_merge, args.y_merge), mask=alpha
+                    )
+                else:
+                    dst.paste(loaded_image, (args.x_merge, args.y_merge))
+                dst.paste(image, (loaded_image.width, 0))
+                image = dst
+            draw = ImageDraw.Draw(image)
 
         if args.lines:
-            # Draw a dotted horizontal line over the top and below the bottom borders of the printable area
+            # Draw a dotted horizontal line over the top border and below the bottom border of the printable area
             for x in range(0, image.width, 5):
                 draw.line(
                     (x, print_border, x + 1, print_border),
@@ -143,6 +212,10 @@ def main():
 
         if args.show:
             image.show()
+        if args.save:
+            image.save(args.save)
+            if args.no_print:
+                quit()
 
         # Convert and rotate (similar to read_png() of labelmaker_encode.py)
         tmp = image.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
