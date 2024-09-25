@@ -6,7 +6,7 @@ import serial
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from labelmaker import do_print_job, reset_printer
-
+    
 
 def set_args():
     """
@@ -27,7 +27,12 @@ def set_args():
     p.add_argument(
         'text_to_print',
         metavar='TEXT_TO_PRINT',
-        help='Text to be printed.'
+        help='Text to be printed. UTF8 characters are accepted.'
+    )
+    p.add_argument(
+        '-u', '--unicode',
+        help='Use Unicode escape sequences in TEXT_TO_PRINT.',
+        action='store_true'
     )
     p.add_argument(
         '-l', '--lines',
@@ -36,7 +41,12 @@ def set_args():
     )
     p.add_argument(
         '-s', '--show',
-        help='Show the created image and quit.',
+        help='Show the created image. (If also using -n, terminate.)',
+        action='store_true'
+    )
+    p.add_argument(
+        '-c', '--show-conv',
+        help='Show the converted image. (If also using -n, terminate.)',
         action='store_true'
     )
     p.add_argument(
@@ -46,7 +56,7 @@ def set_args():
     p.add_argument(
         '-M', '--merge',
         action='append',
-        help='Merge the image file. Can be used multiple times.'
+        help='Merge the image file before the text. Can be used multiple times.'
     )
     p.add_argument(
         '-R', '--resize',
@@ -57,13 +67,13 @@ def set_args():
     p.add_argument(
         '-X', '--x-merge',
         type=int,
-        help='With merge, horizontaly traslate image of X pixels.',
+        help='With merge, shift right the image of X pixels.',
         default = 0
     )
     p.add_argument(
         '-Y', '--y-merge',
         type=int,
-        help='With merge, vertically traslate image of Y pixels.',
+        help='With merge, shift down the image of Y pixels.',
         default = 0
     )
     p.add_argument(
@@ -118,13 +128,18 @@ def main():
         font_height = 0
         print_border = (height_of_the_image - height_of_the_printable_area) / 2
         if args.text_to_print:
+            if args.unicode:
+                text = args.text_to_print.encode().decode('unicode_escape')
+            else:
+                text = args.text_to_print
             while font_height < height_of_the_printable_area - 1:
-                font = ImageFont.truetype(
-                    args.fontname, font_size, encoding='utf-8'
-                )
-                font_width, font_height = font.getbbox(
-                    args.text_to_print, anchor="lt"
-                )[2:]
+                try:
+                    font = ImageFont.truetype(
+                        args.fontname, font_size, encoding='utf-8'
+                    )
+                except Exception as e:
+                    p.error(f'Cannot load font "{args.fontname}" - {e}')
+                font_width, font_height = font.getbbox(text, anchor="lt")[2:]
                 font_size += 1
 
             # Create a drawing context for the image
@@ -135,8 +150,7 @@ def main():
             )
             draw = ImageDraw.Draw(image)
             draw.text(
-                (h_padding, print_border + 1),
-                args.text_to_print,
+                (h_padding, print_border + 1), text,
                 font=font, fill="black", anchor="lt"
             )
         else:  # null image
@@ -212,6 +226,8 @@ def main():
 
         if args.show:
             image.show()
+            if not args.show_conv and args.no_print:
+                quit()
         if args.save:
             image.save(args.save)
             if args.no_print:
@@ -248,7 +264,7 @@ def main():
         if print_length > 499:
             print("Print length exceeding 49.9 cm = 19.6 inc")
             quit()
-        if args.show:
+        if args.show_conv:
             padded.show()
             if args.no_print:
                 quit()

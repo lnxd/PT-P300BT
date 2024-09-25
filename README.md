@@ -13,7 +13,7 @@ This repository provides a command-line tool in pure Python to print from a comp
 
 The scripts convert text labels to appropriate images compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer, regardless the used font. The scripts also include the code to drive the printer via serial Bluetooth interface.
 
-Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font. In addition, the program calculates the size of the printed tape and the print duration.
+Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font. In addition, the program calculates the size of the printed tape and the print duration and processes images.
 
 Standard usage: `python3 printlabel.py COM_PORT FONT_NAME TEXT_TO_PRINT`
 
@@ -29,31 +29,34 @@ or:
 printlabel.exe COM7 "arial.ttf" "Lorem Ipsum"
 ```
 
-In addition, all options included in *labelmaker.py* are available, with some extension.
+In addition, all options included in *labelmaker.py* are available, with several extensions.
 
 ```
-usage: printlabel.py [-h] [-l] [-s] [-i IMAGE] [-M MERGE] [-R RESIZE] [-X X_MERGE] [-Y Y_MERGE] [-S SAVE] [-n] [-F] [-a] [-m END_MARGIN] [-r] [-C]
+usage: printlabel.py [-h] [-u] [-l] [-s] [-c] [-i IMAGE] [-M MERGE] [-R RESIZE] [-X X_MERGE] [-Y Y_MERGE] [-S SAVE] [-n] [-F] [-a]
+                     [-m END_MARGIN] [-r] [-C]
                      COM_PORT FONT_NAME TEXT_TO_PRINT
 
 positional arguments:
   COM_PORT              Printer COM port.
   FONT_NAME             Pathname of the used TrueType font.
-  TEXT_TO_PRINT         Text to be printed.
+  TEXT_TO_PRINT         Text to be printed. UTF8 characters are accepted.
 
 optional arguments:
   -h, --help            show this help message and exit
+  -u, --unicode         Use Unicode escape sequences in TEXT_TO_PRINT.
   -l, --lines           Add horizontal lines for drawing area (dotted red) and tape (cyan).
-  -s, --show            Show the created image and quit.
+  -s, --show            Show the created image. (If also using -n, terminate.)
+  -c, --show-conv       Show the converted image. (If also using -n, terminate.)
   -i IMAGE, --image IMAGE
                         Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.
   -M MERGE, --merge MERGE
-                        Merge the image file. Can be used multiple times.
+                        Merge the image file before the text. Can be used multiple times.
   -R RESIZE, --resize RESIZE
                         With merge, add a specific resize value to the internally computed one.
   -X X_MERGE, --x-merge X_MERGE
-                        With merge, horizontaly traslate image of X pixels.
+                        With merge, shift right the image of X pixels.
   -Y Y_MERGE, --y-merge Y_MERGE
-                        With merge, vertically traslate image of Y pixels.
+                        With merge, shift down the image of Y pixels.
   -S SAVE, --save SAVE  Save the produced image to a PNG file.
   -n, --no-print        Only configure the printer and send the image but do not send print command.
   -F, --no-feed         Disable feeding at the end of the print (chaining).
@@ -66,13 +69,21 @@ optional arguments:
 
 Options `-sln` are useful to simulate the print, showing the created image and adding horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan).
 
-Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating multiple images with the `-M` option, that can be used more times (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. If the merged image is bigger than the text, it is automatically resized. Resizing and traslation of merged images can be controlled with `-R`, `-X`, `-Y`.
+Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating multiple images with the `-M` option, that can be used more times (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. If the merged image is bigger than the text, it is automatically resized (but the image needs to be padded to fit the printable area). Resize and traslation of merged images can be manually controlled with `-R` (floating point number), `-X`, `-Y`.
+
+`-i` runs the legacy process of *labelmaker.py*.
 
 Example of merging image and text, resizing and traslating the image so that it fits the printable area:
 
 ```
 curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/happy-sun.png -o happy-sun.png
 python printlabel.py -sln -M happy-sun.png -R 0.7 -Y 14 COM7 "Gabriola.ttf" "Hello!"
+```
+
+Example of usage of Unicode escape sequences:
+
+```
+python printlabel.py -slnu COM7 "calibri.ttf" "\u2469Note"
 ```
 
 ## Installation
