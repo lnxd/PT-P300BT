@@ -51,33 +51,39 @@ def set_args():
     )
     p.add_argument(
         '-i', '--image',
-        help='Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.'
+        metavar='FILE_NAME',
+        help='Image file to print. If this option is used (legacy mode), TEXT_TO_PRINT and FONT_NAME are ignored.'
     )
     p.add_argument(
         '-M', '--merge',
+        metavar='FILE_NAME',
         action='append',
         help='Merge the image file before the text. Can be used multiple times.'
     )
     p.add_argument(
         '-R', '--resize',
         type=float,
-        help='With merge, add a specific resize value to the internally computed one.',
+        metavar='FLOAT',
+        help='With image merge, additionaly resize it (floating point number).',
         default = 1.0
     )
     p.add_argument(
         '-X', '--x-merge',
         type=int,
-        help='With merge, shift right the image of X pixels.',
+        metavar='DOTS',
+        help='With image merge, shift right the image of X dots.',
         default = 0
     )
     p.add_argument(
         '-Y', '--y-merge',
+        metavar='DOTS',
         type=int,
-        help='With merge, shift down the image of Y pixels.',
-        default = 0
+        help='With image merge, shift down the image of Y dots.',
+        default = 12
     )
     p.add_argument(
         '-S', '--save',
+        metavar='FILE_NAME',
         help='Save the produced image to a PNG file.'
     )
     p.add_argument(
@@ -97,6 +103,7 @@ def set_args():
     )
     p.add_argument(
         '-m', '--end-margin',
+        metavar='DOTS',
         help='End margin (in dots).',
         default=0,
         type=int
@@ -111,20 +118,112 @@ def set_args():
         help='Disable compression.',
         action='store_true'
     )
+    p.add_argument(
+        '--fill-color',
+        dest="fill",
+        help='Fill color for the text (e.g., "white"; default = "black").',
+        default="black",
+    )
+    p.add_argument(
+        '--stroke-fill',
+        help='Stroke Fill color for the text (e.g., "black"; default = None).',
+        default=None,
+    )
+    p.add_argument(
+        '--stroke-width',
+        help='Width of the text stroke (e.g., 1 or 2).',
+        type=int,
+        default=0,
+    )
+    p.add_argument(
+        '--text-size',
+        help='Horizontally stretch the text to fit the specified size.',
+        metavar='MILLIMETERS',
+        type=int,
+        default=None,
+    )
+    p.add_argument(
+        '--white-level',
+        help='Minimum pixel value to consider it "white" when'
+        ' cropping the image. Set it to a value close to 255. (Default: 240)',
+        metavar='NUMBER',
+        type=int,
+        default=240,
+    )
     return p
+
+
+def process_image(image_path, resize, white_level, target_height):
+    # Open the image
+    img = Image.open(image_path)
+    
+    # Convert the image to RGBA to ensure it has an alpha channel
+    img = img.convert("RGBA")
+    pixels = img.load()
+
+    # Create a new white background image with the same size as the original
+    white_background = Image.new("RGBA", img.size, (255, 255, 255, 255))
+    
+    # Paste the original image onto the white background
+    white_background.paste(img, (0, 0), img)
+    
+    # Now 'white_background' has no transparency (transparency is replaced by white)
+    img = white_background
+    
+    # Convert the image to grayscale
+    img = img.convert("L")  # "L" mode is for grayscale images
+    
+    # Get image dimensions
+    width, height = img.size
+
+    # Initialize the bounding box coordinates
+    left, top, right, bottom = width, height, 0, 0
+    
+    # Iterate over each pixel to find the bounding box of non-white pixels
+    for y in range(height):
+        for x in range(width):
+            pixel = img.getpixel((x, y))
+            
+            # White pixels in grayscale have a value close to 255
+            if pixel < white_level:  # Consider pixels that are not white
+                left = min(left, x)
+                right = max(right, x)
+                top = min(top, y)
+                bottom = max(bottom, y)
+    
+    # Crop the image to the bounding box
+    if right > left and bottom > top:
+        cropped_img = img.crop((left, top, right + 1, bottom + 1))
+        
+        # Get the size of the cropped image
+        cropped_width, cropped_height = cropped_img.size
+        
+        # Calculate the new width to maintain the aspect ratio with target height
+        aspect_ratio = cropped_width / cropped_height
+        new_width = int(target_height * aspect_ratio)
+        
+        # Resize the image to target height while maintaining aspect ratio
+        return cropped_img.resize(
+            (int(new_width * resize), int(target_height * resize)),
+            Image.Resampling.LANCZOS
+        )
+    else:
+        print("No content detected to crop.")
+    return None
+
 
 def main():
     p = set_args()
     args = p.parse_args()
     data = None
-    if args.image is None:
+    if args.image is None: # not using the legacy mode
         height_of_the_printable_area = 64  # px: number of vertical pixels of the PT-P300BT printer (9 mm)
         height_of_the_tape = 86  # 64 px / 9 mm * 12 mm (the borders over the printable area will not be printed)
         height_of_the_image = 88  # px (can be any value >= height_of_the_tape, but height_of_the_tape + 2 border lines is good)
         h_padding = 5  # horizontal padding (left and right)
 
         # Compute max TT font size to remain within height_of_the_printable_area
-        font_size = 1
+        font_size = 0
         font_height = 0
         print_border = (height_of_the_image - height_of_the_printable_area) / 2
         if args.text_to_print:
@@ -132,7 +231,13 @@ def main():
                 text = args.text_to_print.encode().decode('unicode_escape')
             else:
                 text = args.text_to_print
-            while font_height < height_of_the_printable_area - 1:
+            stop = False
+            while font_height != height_of_the_printable_area:
+                if font_height > height_of_the_printable_area:
+                    font_size -= 1
+                    stop = True
+                else:
+                    font_size += 1
                 try:
                     font = ImageFont.truetype(
                         args.fontname, font_size, encoding='utf-8'
@@ -140,7 +245,12 @@ def main():
                 except Exception as e:
                     p.error(f'Cannot load font "{args.fontname}" - {e}')
                 font_width, font_height = font.getbbox(text, anchor="lt")[2:]
-                font_size += 1
+                if stop:
+                    print(
+                        "The max height of this text with font "
+                        f'"{args.fontname}" is {font_height} dots'
+                        f' instead of {height_of_the_printable_area}.')
+                    break
 
             # Create a drawing context for the image
             image = Image.new(
@@ -149,10 +259,39 @@ def main():
                 "white"
             )
             draw = ImageDraw.Draw(image)
-            draw.text(
-                (h_padding, print_border + 1), text,
-                font=font, fill="black", anchor="lt"
-            )
+            try:
+                draw.text(
+                    (h_padding, print_border), text,
+                    font=font,
+                    fill=args.fill,
+                    anchor="lt",
+                    stroke_width=args.stroke_width,
+                    stroke_fill=args.stroke_fill
+                )
+            except Exception as e:
+                p.error(f"Invalid parameter: {e}")
+            if args.text_size:
+                text_size = (
+                    int(args.text_size / 0.149)
+                    - h_padding
+                    - args.end_margin
+                )  # mm to dot
+                _, _, text_width, text_height = draw.textbbox(
+                    (0, 0), text,
+                    anchor="lt",
+                    font=font,
+                    stroke_width=args.stroke_width,
+                )
+                scale_factor = text_width / text_size
+                image = image.transform(
+                    (text_size + args.end_margin, height_of_the_image),
+                    Image.Transform.AFFINE,
+                    (scale_factor, 0, 0, 0, 1, 0),
+                )
+                while image.getpixel((image.width - 1, 0)) == (0, 0, 0):
+                    crop_box = (0, 0, image.width - 1, height_of_the_image)
+                    image = image.crop(crop_box)
+                draw = ImageDraw.Draw(image)
         else:  # null image
             image = Image.new(
                 "RGB",
@@ -162,50 +301,52 @@ def main():
             draw = ImageDraw.Draw(image)
 
         if args.merge:
-            for i in args.merge:
-                loaded_image = Image.open(i)
-                if loaded_image.height > height_of_the_image:
-                    print(f'Reducing size of image "{i}"')
-                    loaded_image = loaded_image.resize(
-                        (
-                            int(
-                                height_of_the_image
-                                / loaded_image.height
-                                * loaded_image.width
-                                * args.resize
-                            ),
-                            int(height_of_the_image * args.resize)
-                        ), Image.Resampling.LANCZOS
-                    )
+            for i in reversed(args.merge):
+                loaded_image = process_image(
+                    i,
+                    args.resize,
+                    white_level=args.white_level,
+                    target_height=height_of_the_printable_area
+                )
+                if not loaded_image:
+                    p.error(f'Invalid image "{i}"')
                 dst = Image.new(
                     "RGB",
                     (loaded_image.width + image.width, height_of_the_image),
                     "white"
                 )
-                if loaded_image.info.get("transparency", None) is not None:
-                    print(f'Detected transparent image: "{i}"')
-                    loaded_image = loaded_image.convert('RGBA')
-                    alpha = loaded_image.split()[-1]
-                    dst.paste(
-                        loaded_image, (args.x_merge, args.y_merge), mask=alpha
-                    )
-                else:
-                    dst.paste(loaded_image, (args.x_merge, args.y_merge))
+                dst.paste(loaded_image, (args.x_merge, args.y_merge))
                 dst.paste(image, (loaded_image.width, 0))
                 image = dst
+            # Convert the image to binary
             draw = ImageDraw.Draw(image)
 
         if args.lines:
             # Draw a dotted horizontal line over the top border and below the bottom border of the printable area
+            x = -1
+            while x < image.width:
+                if x > 0:
+                    draw.line(  # top
+                        (int(x), print_border - 6, int(x), print_border - 2),
+                        fill="magenta", width=2
+                    )
+                    draw.line(
+                        (
+                            int(x), height_of_the_image - print_border + 1,
+                            int(x), height_of_the_image - print_border + 5
+                        ),
+                        fill="magenta", width=2
+                    )
+                x += 68
             for x in range(0, image.width, 5):
-                draw.line(
-                    (x, print_border, x + 1, print_border),
+                draw.line(  # top
+                    (x, print_border - 1, x + 1, print_border - 1),
                     fill="red", width=1
                 )
                 draw.line(
-                    (
-                        x, height_of_the_image - print_border, x + 1,
-                        height_of_the_image - print_border
+                    (  # bottom
+                        x, height_of_the_image - print_border,
+                        x + 1, height_of_the_image - print_border
                     ),
                     fill="red", width=1
                 )
@@ -223,15 +364,6 @@ def main():
                     ),
                     fill="cyan", width=1
                 )
-
-        if args.show:
-            image.show()
-            if not args.show_conv and args.no_print:
-                quit()
-        if args.save:
-            image.save(args.save)
-            if args.no_print:
-                quit()
 
         # Convert and rotate (similar to read_png() of labelmaker_encode.py)
         tmp = image.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
@@ -264,6 +396,15 @@ def main():
         if print_length > 499:
             print("Print length exceeding 49.9 cm = 19.6 inc")
             quit()
+        if args.save:
+            print(f'Saving image "{args.save}".')
+            image.save(args.save)
+            if args.no_print:
+                quit()
+        if args.show:
+            image.show()
+            if not args.show_conv and args.no_print:
+                quit()
         if args.show_conv:
             padded.show()
             if args.no_print:

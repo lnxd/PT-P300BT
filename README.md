@@ -32,8 +32,10 @@ printlabel.exe COM7 "arial.ttf" "Lorem Ipsum"
 In addition, all options included in *labelmaker.py* are available, with several extensions.
 
 ```
-usage: printlabel.py [-h] [-u] [-l] [-s] [-c] [-i IMAGE] [-M MERGE] [-R RESIZE] [-X X_MERGE] [-Y Y_MERGE] [-S SAVE] [-n] [-F] [-a]
-                     [-m END_MARGIN] [-r] [-C]
+usage: printlabel.py [-h] [-u] [-l] [-s] [-c] [-i FILE_NAME] [-M FILE_NAME] [-R FLOAT] [-X DOTS]
+                     [-Y DOTS] [-S FILE_NAME] [-n] [-F] [-a] [-m DOTS] [-r] [-C]
+                     [--fill-color FILL] [--stroke-fill STROKE_FILL] [--stroke-width STROKE_WIDTH]
+                     [--text-size MILLIMETERS]
                      COM_PORT FONT_NAME TEXT_TO_PRINT
 
 positional arguments:
@@ -47,43 +49,67 @@ optional arguments:
   -l, --lines           Add horizontal lines for drawing area (dotted red) and tape (cyan).
   -s, --show            Show the created image. (If also using -n, terminate.)
   -c, --show-conv       Show the converted image. (If also using -n, terminate.)
-  -i IMAGE, --image IMAGE
-                        Image file to print. If this option is used, TEXT_TO_PRINT and FONT_NAME are ignored.
-  -M MERGE, --merge MERGE
+  -i FILE_NAME, --image FILE_NAME
+                        Image file to print. If this option is used (legacy mode),
+                        TEXT_TO_PRINT and FONT_NAME are ignored.
+  -M FILE_NAME, --merge FILE_NAME
                         Merge the image file before the text. Can be used multiple times.
-  -R RESIZE, --resize RESIZE
-                        With merge, add a specific resize value to the internally computed one.
-  -X X_MERGE, --x-merge X_MERGE
-                        With merge, shift right the image of X pixels.
-  -Y Y_MERGE, --y-merge Y_MERGE
-                        With merge, shift down the image of Y pixels.
-  -S SAVE, --save SAVE  Save the produced image to a PNG file.
-  -n, --no-print        Only configure the printer and send the image but do not send print command.
+  -R FLOAT, --resize FLOAT
+                        With image merge, additionaly resize it (floating point number).
+  -X DOTS, --x-merge DOTS
+                        With image merge, shift right the image of X dots.
+  -Y DOTS, --y-merge DOTS
+                        With image merge, shift down the image of Y dots.
+  -S FILE_NAME, --save FILE_NAME
+                        Save the produced image to a PNG file.
+  -n, --no-print        Only configure the printer and send the image but do not send print
+                        command.
   -F, --no-feed         Disable feeding at the end of the print (chaining).
   -a, --auto-cut        Enable auto-cutting (or print label boundary on e.g. PT-P300BT).
-  -m END_MARGIN, --end-margin END_MARGIN
+  -m DOTS, --end-margin DOTS
                         End margin (in dots).
   -r, --raw             Send the image to printer as-is without any pre-processing.
   -C, --nocomp          Disable compression.
+  --fill-color FILL     Fill color for the text (e.g., "white"; default = "black").
+  --stroke-fill STROKE_FILL
+                        Stroke Fill color for the text (e.g., "black"; default = None).
+  --stroke-width STROKE_WIDTH
+                        Width of the text stroke (e.g., 1 or 2).
+  --text-size MILLIMETERS
+                        Horizontally stretch the text to fit the specified size.
+  --white-level NUMBER  Minimum pixel value to consider it "white" when cropping the
+                        image. Set it to a value close to 255. (Default: 240)
 ```
 
-Options `-sln` are useful to simulate the print, showing the created image and adding horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan).
+Options `-sln` are useful to simulate the print, showing the created image and adding horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan), with magenta vertical lines over the printer area marking the tape centimeters.
 
-Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating multiple images with the `-M` option, that can be used more times (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. If the merged image is bigger than the text, it is automatically resized (but the image needs to be padded to fit the printable area). Resize and traslation of merged images can be manually controlled with `-R` (floating point number), `-X`, `-Y`.
+Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating images with the `-M` option; it can be used more times for multiple images (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. Merged images are automatically resized to fit the printable area, removing white borders without modifying the proportion. Resize and traslation of merged images can also be manually controlled with `-R` (floating point number), `-X`, `-Y`.
 
 `-i` runs the legacy process of *labelmaker.py*.
 
-Example of merging image and text, resizing and traslating the image so that it fits the printable area:
+Example of merging image and text, automatically resizing and traslating the image so that it fits the printable area:
 
 ```
 curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/happy-sun.png -o happy-sun.png
-python printlabel.py -sln -M happy-sun.png -R 0.7 -Y 14 COM7 "Gabriola.ttf" "Hello!"
+python printlabel.py -sln -M happy-sun.png COM7 "Gabriola.ttf" "Hello!"
+```
+
+Same as before, but resizing the text so that its length is about 7 centimeters plus heading image, with a small white border at the end:
+```
+python printlabel.py -sl -M happy-sun.png COM7 --text-size 70 --end-margin 10 "micross.ttf" "lorem ipsum dolor sit amet"
 ```
 
 Example of usage of Unicode escape sequences:
 
 ```
 python printlabel.py -slnu COM7 "calibri.ttf" "\u2469Note"
+```
+
+Examples of using text stroke:
+
+```
+python printlabel.py -sln --stroke-width 2 -m 10 COM7 "arial.ttf" "Bolded text"
+python printlabel.py -sln --stroke-width 1 --fill-color="white" --stroke-fill="black" -m 10 COM7 "Gabriola.ttf" "Text stroke"
 ```
 
 ## Installation
