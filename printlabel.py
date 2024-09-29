@@ -322,22 +322,46 @@ def main():
             draw = ImageDraw.Draw(image)
 
         if args.lines:
-            # Draw a dotted horizontal line over the top border and below the bottom border of the printable area
+            # Draw ruler (in)
+            draw.text(
+                (0, 1), "in",
+                anchor="la",
+                fill="magenta"
+            )
             x = -1
+            i = 0
             while x < image.width:
                 if x > 0:
                     draw.line(  # top
-                        (int(x), print_border - 6, int(x), print_border - 2),
+                        (
+                            int(x), print_border - (4 if i % 4 else 9),
+                            int(x), print_border - 2
+                        ),
                         fill="magenta", width=2
                     )
+                x += 43.18
+                i += 1
+            # Draw ruler (cm)
+            draw.text(
+                (0, 76), "cm",
+                anchor="la",
+                fill="magenta"
+            )
+            x = -1
+            i = 0
+            while x < image.width:
+                if x > 0:
                     draw.line(
                         (
                             int(x), height_of_the_image - print_border + 1,
-                            int(x), height_of_the_image - print_border + 5
+                            int(x), height_of_the_image - print_border
+                            + (5 if i % 10 else 9)
                         ),
                         fill="magenta", width=2
                     )
                 x += 68
+                i += 1
+            # Draw a dotted horizontal line over the top border and below the bottom border of the printable area
             for x in range(0, image.width, 5):
                 draw.line(  # top
                     (x, print_border - 1, x + 1, print_border - 1),
@@ -366,21 +390,24 @@ def main():
                 )
 
         # Convert and rotate (similar to read_png() of labelmaker_encode.py)
-        tmp = image.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
-        tmp = ImageOps.invert(tmp.convert('L')).convert('1')
+        tmp = ImageOps.invert(
+            image.convert('L', dither=Image.Dither.FLOYDSTEINBERG)
+        ).convert('1', dither=Image.Dither.FLOYDSTEINBERG)
         tmp = tmp.rotate(-90, expand=True)
         tmp = ImageOps.mirror(tmp)
         w, h = tmp.size
         padded = Image.new('1', (128, h))
-        x, y = (128-w)//2, 0
-        nw, nh = x+w, y+h
+        x, y = (128 - w) // 2, 0
+        nw, nh = x + w, y + h
         padded.paste(tmp, (x, y, nw, nh))
+
+        # Compute tape length and print duration
         print_length = padded.size[1] * 0.149  # mm
         print(
             "Length of the printed tape:",
             "%.1f" % (print_length / 10),
             "cm = %.1f" % (print_length / 10 / 2.54),
-            "inc, printed in",
+            "in, printed in",
             "%.1f" % (print_length / 20),
             "sec."
         )
@@ -389,13 +416,17 @@ def main():
             "Length of the used tape (adding header and footer):",
             "%.1f" % (print_length / 10),
             "cm = %.1f" % (print_length / 10 / 2.54),
-            "inc, printed in",
+            "in, printed in",
             "%.1f" % (print_length / 20),
             "sec."
         )
+
+        # Check max tape length
         if print_length > 499:
-            print("Print length exceeding 49.9 cm = 19.6 inc")
+            print("Print length exceeding 49.9 cm = 19.6 in")
             quit()
+
+        # Image save and show
         if args.save:
             print(f'Saving image "{args.save}".')
             image.save(args.save)
@@ -409,6 +440,7 @@ def main():
             padded.show()
             if args.no_print:
                 quit()
+
         data = padded.tobytes()
 
     # Similar to main() in labelmaker.py

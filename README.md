@@ -81,17 +81,17 @@ optional arguments:
                         image. Set it to a value close to 255. (Default: 240)
 ```
 
-Options `-sln` are useful to simulate the print, showing the created image and adding horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan), with magenta vertical lines over the printer area marking the tape centimeters.
+Options `-sln` are useful to simulate the print, showing the created image and adding a ruler in inches and centimeters (magenta), with horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan).
 
-Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating images with the `-M` option; it can be used more times for multiple images (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. Merged images are automatically resized to fit the printable area, removing white borders without modifying the proportion. Resize and traslation of merged images can also be manually controlled with `-R` (floating point number), `-X`, `-Y`.
+Before generating the text (`TEXT_TO_PRINT`), the tool allows concatenating images with the `-M` option; it can be used more times for multiple images (transparent images are also accepted). The final image can also be saved with the `-S` option and then reused by running again the tool with the `-M` option; when also setting `TEXT_TO_PRINT` to a null string (`""`), the reused image will remain unchanged. Merged images are automatically resized to fit the printable area, removing white borders without modifying the proportion. Resize and traslation of merged images can also be manually controlled with `-R` (floating point number), `-X`, `-Y`. The `--text-size` option horizontally stretches or squeezes the text so that it fits the specified size in millimeters; the size parameter includes `--end-margin` and default left and right paddings, but does not include the size of merged images if used, which have a fixed length that has to be kept proportioned.
 
-`-i` runs the legacy process of *labelmaker.py*.
+`-i` runs the legacy process of *labelmaker.py* and disables image processing.
 
 Example of merging image and text, automatically resizing and traslating the image so that it fits the printable area:
 
 ```
 curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/happy-sun.png -o happy-sun.png
-python printlabel.py -sln -M happy-sun.png COM7 "Gabriola.ttf" "Hello!"
+python printlabel.py -sl -M happy-sun.png COM7 "Gabriola.ttf" "Hello!"
 ```
 
 Same as before, but resizing the text so that its length is about 7 centimeters plus heading image, with a small white border at the end:
