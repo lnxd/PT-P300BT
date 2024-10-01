@@ -22,7 +22,7 @@ def set_args():
     p.add_argument(
         'fontname',
         metavar='FONT_NAME',
-        help='Pathname of the used TrueType font.'
+        help='Pathname of the used TrueType or OpenType font.'
     )
     p.add_argument(
         'text_to_print',
@@ -149,6 +149,15 @@ def set_args():
         metavar='NUMBER',
         type=int,
         default=240,
+    )
+    p.add_argument(
+        '--threshold',
+        help='Custom thresholding when converting the image to binary, to'
+        ' manually decide which pixel values become black or white'
+        ' (Default: 75)',
+        metavar='NUMBER',
+        type=int,
+        default=75,
     )
     return p
 
@@ -389,17 +398,26 @@ def main():
                     fill="cyan", width=1
                 )
 
-        # Convert and rotate (similar to read_png() of labelmaker_encode.py)
-        tmp = ImageOps.invert(
+        # Convert to greyscale and rotate/invert/mirror the image
+        rotated_image = ImageOps.invert(
             image.convert('L', dither=Image.Dither.FLOYDSTEINBERG)
-        ).convert('1', dither=Image.Dither.FLOYDSTEINBERG)
-        tmp = tmp.rotate(-90, expand=True)
-        tmp = ImageOps.mirror(tmp)
-        w, h = tmp.size
+            .rotate(-90, expand=True, resample=Image.BICUBIC)
+        )
+        rotated_image = ImageOps.mirror(rotated_image)
+
+        # Manual binarization with a threshold (smoother control of artifacts)
+        bin_image = rotated_image.point(lambda p: p > args.threshold and 255)
+
+        # Convert to '1' mode (binary image)
+        binary_img = bin_image.convert('1')
+
+        # Add padding to increase the height from height_of_the_image to 128
+        # (similar to the last part of read_png() code in labelmaker_encode.py)
+        w, h = binary_img.size
         padded = Image.new('1', (128, h))
         x, y = (128 - w) // 2, 0
         nw, nh = x + w, y + h
-        padded.paste(tmp, (x, y, nw, nh))
+        padded.paste(binary_img, (x, y, nw, nh))
 
         # Compute tape length and print duration
         print_length = padded.size[1] * 0.149  # mm

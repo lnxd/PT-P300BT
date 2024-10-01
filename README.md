@@ -13,7 +13,7 @@ This repository provides a command-line tool in pure Python to print from a comp
 
 The scripts convert text labels to appropriate images compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer, regardless the used font. The scripts also include the code to drive the printer via serial Bluetooth interface.
 
-Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font. In addition, the program calculates the size of the printed tape and the print duration and processes images.
+Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType and OpenType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, provides more accurate image processing and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font. In addition, the program calculates the size of the printed tape and the print duration and processes images.
 
 Standard usage: `python3 printlabel.py COM_PORT FONT_NAME TEXT_TO_PRINT`
 
@@ -34,13 +34,14 @@ In addition, all options included in *labelmaker.py* are available, with several
 ```
 usage: printlabel.py [-h] [-u] [-l] [-s] [-c] [-i FILE_NAME] [-M FILE_NAME] [-R FLOAT] [-X DOTS]
                      [-Y DOTS] [-S FILE_NAME] [-n] [-F] [-a] [-m DOTS] [-r] [-C]
-                     [--fill-color FILL] [--stroke-fill STROKE_FILL] [--stroke-width STROKE_WIDTH]
-                     [--text-size MILLIMETERS]
+                     [--fill-color FILL] [--stroke-fill STROKE_FILL]
+                     [--stroke-width STROKE_WIDTH] [--text-size MILLIMETERS]
+                     [--white-level NUMBER] [--threshold NUMBER]
                      COM_PORT FONT_NAME TEXT_TO_PRINT
 
 positional arguments:
   COM_PORT              Printer COM port.
-  FONT_NAME             Pathname of the used TrueType font.
+  FONT_NAME             Pathname of the used TrueType or OpenType font.
   TEXT_TO_PRINT         Text to be printed. UTF8 characters are accepted.
 
 optional arguments:
@@ -50,8 +51,8 @@ optional arguments:
   -s, --show            Show the created image. (If also using -n, terminate.)
   -c, --show-conv       Show the converted image. (If also using -n, terminate.)
   -i FILE_NAME, --image FILE_NAME
-                        Image file to print. If this option is used (legacy mode),
-                        TEXT_TO_PRINT and FONT_NAME are ignored.
+                        Image file to print. If this option is used (legacy mode), TEXT_TO_PRINT
+                        and FONT_NAME are ignored.
   -M FILE_NAME, --merge FILE_NAME
                         Merge the image file before the text. Can be used multiple times.
   -R FLOAT, --resize FLOAT
@@ -77,8 +78,10 @@ optional arguments:
                         Width of the text stroke (e.g., 1 or 2).
   --text-size MILLIMETERS
                         Horizontally stretch the text to fit the specified size.
-  --white-level NUMBER  Minimum pixel value to consider it "white" when cropping the
-                        image. Set it to a value close to 255. (Default: 240)
+  --white-level NUMBER  Minimum pixel value to consider it "white" when cropping the image. Set
+                        it to a value close to 255. (Default: 240)
+  --threshold NUMBER    Custom thresholding when converting the image to binary, to manually
+                        decide which pixel values become black or white (Default: 75)
 ```
 
 Options `-sln` are useful to simulate the print, showing the created image and adding a ruler in inches and centimeters (magenta), with horizontal lines to mark the drawing area (dotted red) and the tape borders (cyan).
