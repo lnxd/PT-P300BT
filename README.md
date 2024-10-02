@@ -37,7 +37,7 @@ usage: printlabel.py [-h] [-u] [-l] [-s] [-c] [-i FILE_NAME] [-M FILE_NAME] [-R 
                      [--fill-color FILL] [--stroke-fill STROKE_FILL]
                      [--stroke-width STROKE_WIDTH] [--text-size MILLIMETERS]
                      [--white-level NUMBER] [--threshold NUMBER]
-                     COM_PORT FONT_NAME TEXT_TO_PRINT
+                     COM_PORT FONT_NAME TEXT_TO_PRINT [TEXT_TO_PRINT ...]
 
 positional arguments:
   COM_PORT              Printer COM port.

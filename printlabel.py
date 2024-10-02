@@ -27,6 +27,7 @@ def set_args():
     p.add_argument(
         'text_to_print',
         metavar='TEXT_TO_PRINT',
+        nargs='+',
         help='Text to be printed. UTF8 characters are accepted.'
     )
     p.add_argument(
@@ -235,11 +236,10 @@ def main():
         font_size = 0
         font_height = 0
         print_border = (height_of_the_image - height_of_the_printable_area) / 2
-        if args.text_to_print:
+        text = " ".join(args.text_to_print)
+        if text:
             if args.unicode:
-                text = args.text_to_print.encode().decode('unicode_escape')
-            else:
-                text = args.text_to_print
+                text = text.encode().decode('unicode_escape')
             stop = False
             while font_height != height_of_the_printable_area:
                 if font_height > height_of_the_printable_area:
