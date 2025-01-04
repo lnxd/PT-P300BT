@@ -4,6 +4,7 @@ import re
 import argparse
 import serial
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from pdf2image import convert_from_path
 
 from labelmaker import do_print_job, reset_printer
     
@@ -22,12 +23,13 @@ def set_args():
     p.add_argument(
         'fontname',
         metavar='FONT_NAME',
+        nargs='?', default='arial.ttf',
         help='Pathname of the used TrueType or OpenType font.'
     )
     p.add_argument(
         'text_to_print',
         metavar='TEXT_TO_PRINT',
-        nargs='+',
+        nargs='*',
         help='Text to be printed. UTF8 characters are accepted.'
     )
     p.add_argument(
@@ -164,6 +166,10 @@ def set_args():
 
 
 def process_image(image_path, resize, white_level, target_height):
+    # Determines if the image is a PDF and converts it to PNG if necessary
+    if image_path.lower().endswith('.pdf'):
+        image_path = convert_pdf(image_path)  # Sends image_path to convert_pdf() and returns the output_filename
+
     # Open the image
     img = Image.open(image_path)
     
@@ -221,6 +227,12 @@ def process_image(image_path, resize, white_level, target_height):
         print("No content detected to crop.")
     return None
 
+def convert_pdf(filename):
+    # Converts the first page of a PDF to a PNG, returns PNG
+    output_filename = filename.replace('.pdf', '.png')
+    images = convert_from_path(filename, dpi=300, first_page=1, last_page=1) # used defaults, 300dpi may even be overkill for labels
+    images[0].save(output_filename, "PNG")
+    return output_filename
 
 def main():
     p = set_args()

@@ -1,3 +1,4 @@
 pyserial
 pillow
 packbits
+pdf2image
