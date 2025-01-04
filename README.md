@@ -11,7 +11,7 @@ This repository provides a command-line tool in pure Python to print from a comp
 - [stecman Gist](https://gist.github.com/stecman/ee1fd9a8b1b6f0fdd170ee87ba2ddafd)
 - [vsigler Gist](https://gist.github.com/vsigler/98eafaf8cdf2374669e590328164f5fc)
 
-The scripts convert text labels to appropriate images compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer, regardless the used font. The scripts also include the code to drive the printer via serial Bluetooth interface.
+The scripts convert text labels to appropriate images (including the first page of a PDF conversion with "pdf2image" and which requires poppler to be installed) compatible with 12mm width craft tapes like [TZe-131](https://www.brother-usa.com/products/tze131) or [TZe-231](https://www.brother-usa.com/products/tze231), tuned for the max allowed character size with this printer, regardless the used font. The scripts also include the code to drive the printer via serial Bluetooth interface.
 
 Comparing with the PT-P300BT Gist, the Python *printlabel.py* program has been introduced, replacing *printlabel.cmd* and *printlabel.sh*. It supports any TrueType and OpenType font, automatically selects the maximum font size to fit the printable area of the tape, avoids creating temporary image files, provides more accurate image processing and does not rely on ImageMagick. Text strings including characters which do not [overshoot](https://en.wikipedia.org/wiki/Overshoot_(typography)) below the [baseline](https://en.wikipedia.org/wiki/Baseline_(typography)) (e.g., uppercase letters) are automatically printed with a bigger font. In addition, the program calculates the size of the printed tape and the print duration and processes images.
 
@@ -97,7 +97,14 @@ curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/
 python printlabel.py -sl -M happy-sun.png COM7 "Gabriola.ttf" "Hello!"
 ```
 
-Same as before, but resizing the text so that its length is about 7 centimeters plus heading image, with a small white border at the end:
+Same as before, but uses the PDF version of happy-sun (it is designed for single page PDFs, like barcodes or other custom icons)
+
+```
+curl https://raw.githubusercontent.com/uroesch/pngpetite/main/samples/pngpetite/happy-sun.png -o happy-sun.png
+python printlabel.py -sl -M happy-sun.pdf COM7 "Gabriola.ttf" "Hello!"
+```
+
+Same as the happy sun png example, but resizing the text so that its length is about 7 centimeters plus heading image, with a small white border at the end:
 ```
 python printlabel.py -sl -M happy-sun.png COM7 --text-size 70 --end-margin 10 "micross.ttf" "lorem ipsum dolor sit amet"
 ```
