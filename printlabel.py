@@ -475,7 +475,7 @@ def main():
 
     # Similar to main() in labelmaker.py
     try:
-        ser = serial.Serial(args.comport)
+        ser = serial.Serial(args.comport, timeout=5)
     except serial.SerialException:
         p.error(
             'Printer on Bluetooth serial port "'
@@ -488,6 +488,8 @@ def main():
     try:
         assert data is not None
         do_print_job(ser, args, data)
+    except serial.SerialTimeoutException:
+        p.error("Timeout while communicating with printer. Please check connection and try again.")
     finally:
         # Initialize
         reset_printer(ser)
