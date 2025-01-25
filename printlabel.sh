@@ -2,14 +2,27 @@
 
 if [ $# -ne 2 ]
    then echo "Usage: $(basename $0)" '"label to print" /dev/ttyS_serial_port_number'
+        echo "For multiple lines, separate text with | character (max 3 lines)"
+        echo "Example: \"Line 1|Line 2|Line 3\""
         exit 1
 fi
-if [[ "$1" =~ ^[A-Z0-9\ -]+$ ]]
-   then convert -pointsize 86 -background white -bordercolor white label:"$1" -fill black -splice 0x5 -border 10x10 label.png # UPPERCASE BLOCK
+
+if [[ "$1" == *"|"* ]]; then
+    if [[ "$1" =~ ^[A-Z0-9\ -|]+$ ]]; then
+        echo "UPPERCASE MODE (bigger font) - Multiline"
+        python3 printlabel.py "$2" "roboto.ttf" "$1" --multiline
+    else
+        echo "standard mode - Multiline"
+        python3 printlabel.py "$2" "roboto.ttf" "$1" --multiline
+    fi
+else
+    if [[ "$1" =~ ^[A-Z0-9\ -]+$ ]]; then
         echo "UPPERCASE MODE (bigger font)"
-   else convert -size x82 -gravity south -splice 0x15 -background white -bordercolor white label:"$1" -fill black label.png
+        python3 printlabel.py "$2" "roboto.ttf" "$1"
+    else
         echo "standard mode"
+        python3 printlabel.py "$2" "roboto.ttf" "$1"
+    fi
 fi
-python3 labelmaker.py -i label.png "$2"
-rm label.png
+
 exit 0
