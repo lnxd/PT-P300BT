@@ -3,7 +3,7 @@ import os
 import re
 import argparse
 import serial
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter
 from pdf2image import convert_from_path
 
 from labelmaker import do_print_job, reset_printer
@@ -315,28 +315,32 @@ def main():
             except Exception as e:
                 p.error(f'Cannot load font "{args.fontname}" - {e}')
 
-        # Create the image with the calculated dimensions
+        # Create the image with the calculated dimensions - using higher resolution for better quality
+        scale_factor = 4  # Create image at 4x resolution then scale down for better quality
         image = Image.new(
             "RGB",
-            (max_width + h_padding * 2 + 1, height_of_the_image),
+            ((max_width + h_padding * 2 + 1) * scale_factor, height_of_the_image * scale_factor),
             "white"
         )
         draw = ImageDraw.Draw(image)
 
+        # Scale up the font size for higher resolution
+        font = ImageFont.truetype(args.fontname, font_size * scale_factor, encoding='utf-8')
+
         # Calculate x position based on alignment
         def get_x_position(line_width):
             if args.align == 'left':
-                return h_padding
+                return h_padding * scale_factor
             elif args.align == 'right':
-                return image.width - h_padding - line_width
+                return image.width - (h_padding * scale_factor) - line_width
             else:  # center
                 return (image.width - line_width) // 2
 
-        # Draw each line of text
+        # Draw each line of text at higher resolution
         try:
             if num_lines == 1:
                 # Single line - use full height
-                y_position = print_border
+                y_position = print_border * scale_factor
                 bbox = font.getbbox(lines[0], anchor="lt")
                 x_position = get_x_position(bbox[2])
                 draw.text(
@@ -345,15 +349,15 @@ def main():
                     font=font,
                     fill=args.fill,
                     anchor="lt",
-                    stroke_width=args.stroke_width,
+                    stroke_width=args.stroke_width * scale_factor if args.stroke_width else 0,
                     stroke_fill=args.stroke_fill
                 )
             elif num_lines == 2:
                 # Two lines - 27 pixels each with 10 pixel gap
-                line_height = 27  # 42.2% of 64
-                gap = 10        # 15.6% of 64
+                line_height = 27 * scale_factor  # 42.2% of 64
+                gap = 10 * scale_factor        # 15.6% of 64
                 for i, line in enumerate(lines):
-                    y_position = print_border + (i * (line_height + gap))
+                    y_position = (print_border + (i * (line_height/scale_factor + gap/scale_factor))) * scale_factor
                     bbox = font.getbbox(line, anchor="lt")
                     x_position = get_x_position(bbox[2])
                     draw.text(
@@ -362,15 +366,15 @@ def main():
                         font=font,
                         fill=args.fill,
                         anchor="lt",
-                        stroke_width=args.stroke_width,
+                        stroke_width=args.stroke_width * scale_factor if args.stroke_width else 0,
                         stroke_fill=args.stroke_fill
                     )
             else:  # 3 lines
                 # Three lines - 17 pixels each with 6.5 pixel gaps
-                line_height = 17  # 26.6% of 64
-                gap = 6.5       # 10.1% of 64
+                line_height = 17 * scale_factor  # 26.6% of 64
+                gap = 6.5 * scale_factor       # 10.1% of 64
                 for i, line in enumerate(lines):
-                    y_position = print_border + (i * (line_height + gap))
+                    y_position = (print_border + (i * (line_height/scale_factor + gap/scale_factor))) * scale_factor
                     bbox = font.getbbox(line, anchor="lt")
                     x_position = get_x_position(bbox[2])
                     draw.text(
@@ -379,11 +383,17 @@ def main():
                         font=font,
                         fill=args.fill,
                         anchor="lt",
-                        stroke_width=args.stroke_width,
+                        stroke_width=args.stroke_width * scale_factor if args.stroke_width else 0,
                         stroke_fill=args.stroke_fill
                     )
         except Exception as e:
             p.error(f"Invalid parameter: {e}")
+
+        # Scale down the image with high-quality resampling
+        image = image.resize(
+            (max_width + h_padding * 2 + 1, height_of_the_image),
+            Image.Resampling.LANCZOS
+        )
 
         if args.text_size:
             text_size = (
@@ -394,7 +404,7 @@ def main():
             _, _, text_width, text_height = draw.textbbox(
                 (0, 0), text,
                 anchor="lt",
-                font=font,
+                font=ImageFont.truetype(args.fontname, font_size, encoding='utf-8'),  # Use original font size
                 stroke_width=args.stroke_width,
             )
             scale_factor = text_width / text_size
@@ -402,6 +412,7 @@ def main():
                 (text_size + args.end_margin, height_of_the_image),
                 Image.Transform.AFFINE,
                 (scale_factor, 0, 0, 0, 1, 0),
+                resample=Image.Resampling.BICUBIC
             )
             while image.getpixel((image.width - 1, 0)) == (0, 0, 0):
                 crop_box = (0, 0, image.width - 1, height_of_the_image)
@@ -497,26 +508,27 @@ def main():
                     fill="cyan", width=1
                 )
 
-        # Convert to greyscale and rotate/invert/mirror the image
+        # Convert to greyscale with enhanced quality - no dithering
+        greyscale = image.convert('L', dither=Image.Dither.NONE)
+
+        # Sharpen the image slightly to enhance edges
+        greyscale = greyscale.filter(ImageFilter.SHARPEN)
+
+        # Rotate and mirror the image
         rotated_image = ImageOps.invert(
-            image.convert('L', dither=Image.Dither.FLOYDSTEINBERG)
-            .rotate(-90, expand=True, resample=Image.BICUBIC)
+            greyscale.rotate(-90, expand=True, resample=Image.BICUBIC)
         )
         rotated_image = ImageOps.mirror(rotated_image)
 
-        # Manual binarization with a threshold (smoother control of artifacts)
-        bin_image = rotated_image.point(lambda p: p > args.threshold and 255)
+        # Direct thresholding for crisp lines
+        bin_image = rotated_image.point(lambda x: 255 if x > args.threshold else 0, '1')
 
-        # Convert to '1' mode (binary image)
-        binary_img = bin_image.convert('1')
-
-        # Add padding to increase the height from height_of_the_image to 128
-        # (similar to the last part of read_png() code in labelmaker_encode.py)
-        w, h = binary_img.size
+        # Convert to binary format required by printer
+        w, h = bin_image.size
         padded = Image.new('1', (128, h))
         x, y = (128 - w) // 2, 0
         nw, nh = x + w, y + h
-        padded.paste(binary_img, (x, y, nw, nh))
+        padded.paste(bin_image, (x, y, nw, nh))
 
         # Compute tape length and print duration
         print_length = padded.size[1] * 0.149  # mm
