@@ -279,6 +279,13 @@ def main():
         font_size = 1  # Start with size 1 instead of 0
         font = None
         
+        # Calculate target width if text_size is specified
+        target_width = None
+        if args.text_size:
+            # Convert mm to dots based on known ratio: 64 pixels = 9mm
+            dots_per_mm = 64 / 9  # ≈ 7.11 dots/mm
+            target_width = int(args.text_size * dots_per_mm) - h_padding - args.end_margin
+        
         # Find the maximum font size that fits all lines
         while True:
             try:
@@ -303,7 +310,8 @@ def main():
                     current_max_width = max(current_max_width, line_width)
                     current_max_height = max(current_max_height, line_height)
                 
-                if current_max_height > available_height:
+                # Check if we've exceeded either height or width constraints
+                if current_max_height > available_height or (target_width and current_max_width > target_width):
                     font_size -= 1
                     # Revert to last working font size
                     font = ImageFont.truetype(args.fontname, font_size, encoding='utf-8')
@@ -339,9 +347,10 @@ def main():
         # Draw each line of text at higher resolution
         try:
             if num_lines == 1:
-                # Single line - use full height
-                y_position = print_border * scale_factor
+                # Single line - center vertically in printable area
                 bbox = font.getbbox(lines[0], anchor="lt")
+                text_height = bbox[3]
+                y_position = (height_of_the_image * scale_factor - text_height) // 2
                 x_position = get_x_position(bbox[2])
                 draw.text(
                     (x_position, y_position),
@@ -353,11 +362,14 @@ def main():
                     stroke_fill=args.stroke_fill
                 )
             elif num_lines == 2:
-                # Two lines - 27 pixels each with 10 pixel gap
+                # Two lines - center the block of text vertically
                 line_height = 27 * scale_factor  # 42.2% of 64
                 gap = 10 * scale_factor        # 15.6% of 64
+                total_height = (2 * line_height) + gap
+                start_y = (height_of_the_image * scale_factor - total_height) // 2
+                
                 for i, line in enumerate(lines):
-                    y_position = (print_border + (i * (line_height/scale_factor + gap/scale_factor))) * scale_factor
+                    y_position = start_y + (i * (line_height + gap))
                     bbox = font.getbbox(line, anchor="lt")
                     x_position = get_x_position(bbox[2])
                     draw.text(
@@ -396,27 +408,6 @@ def main():
         )
 
         if args.text_size:
-            text_size = (
-                int(args.text_size / 0.149)
-                - h_padding
-                - args.end_margin
-            )  # mm to dot
-            _, _, text_width, text_height = draw.textbbox(
-                (0, 0), text,
-                anchor="lt",
-                font=ImageFont.truetype(args.fontname, font_size, encoding='utf-8'),  # Use original font size
-                stroke_width=args.stroke_width,
-            )
-            scale_factor = text_width / text_size
-            image = image.transform(
-                (text_size + args.end_margin, height_of_the_image),
-                Image.Transform.AFFINE,
-                (scale_factor, 0, 0, 0, 1, 0),
-                resample=Image.Resampling.BICUBIC
-            )
-            while image.getpixel((image.width - 1, 0)) == (0, 0, 0):
-                crop_box = (0, 0, image.width - 1, height_of_the_image)
-                image = image.crop(crop_box)
             draw = ImageDraw.Draw(image)
 
         if args.merge:
