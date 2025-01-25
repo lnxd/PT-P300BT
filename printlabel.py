@@ -146,6 +146,12 @@ def set_args():
         default=None,
     )
     p.add_argument(
+        '--align',
+        choices=['left', 'center', 'right'],
+        help='Text alignment (default: center)',
+        default='center'
+    )
+    p.add_argument(
         '--white-level',
         help='Minimum pixel value to consider it "white" when'
         ' cropping the image. Set it to a value close to 255. (Default: 240)',
@@ -317,13 +323,24 @@ def main():
         )
         draw = ImageDraw.Draw(image)
 
+        # Calculate x position based on alignment
+        def get_x_position(line_width):
+            if args.align == 'left':
+                return h_padding
+            elif args.align == 'right':
+                return image.width - h_padding - line_width
+            else:  # center
+                return (image.width - line_width) // 2
+
         # Draw each line of text
         try:
             if num_lines == 1:
                 # Single line - use full height
                 y_position = print_border
+                bbox = font.getbbox(lines[0], anchor="lt")
+                x_position = get_x_position(bbox[2])
                 draw.text(
-                    (h_padding, y_position),
+                    (x_position, y_position),
                     lines[0],
                     font=font,
                     fill=args.fill,
@@ -337,8 +354,10 @@ def main():
                 gap = 10        # 15.6% of 64
                 for i, line in enumerate(lines):
                     y_position = print_border + (i * (line_height + gap))
+                    bbox = font.getbbox(line, anchor="lt")
+                    x_position = get_x_position(bbox[2])
                     draw.text(
-                        (h_padding, y_position),
+                        (x_position, y_position),
                         line,
                         font=font,
                         fill=args.fill,
@@ -352,8 +371,10 @@ def main():
                 gap = 6.5       # 10.1% of 64
                 for i, line in enumerate(lines):
                     y_position = print_border + (i * (line_height + gap))
+                    bbox = font.getbbox(line, anchor="lt")
+                    x_position = get_x_position(bbox[2])
                     draw.text(
-                        (h_padding, y_position),
+                        (x_position, y_position),
                         line,
                         font=font,
                         fill=args.fill,
